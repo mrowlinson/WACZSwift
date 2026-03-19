@@ -4,6 +4,11 @@ public struct WARCRecord: Sendable {
     public let headers: [String: String]
     public let contentBlock: Data
 
+    public init(headers: [String: String], contentBlock: Data) {
+        self.headers = headers
+        self.contentBlock = contentBlock
+    }
+
     // MARK: - Core properties
 
     public var recordType: WARCRecordType? {
