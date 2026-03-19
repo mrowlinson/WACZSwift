@@ -199,7 +199,7 @@ public struct WACZValidator: Sendable {
         warcURLs.sort { $0.lastPathComponent < $1.lastPathComponent }
 
         let indexer = CDXIndexer()
-        let cdxj = try indexer.generateCDXJ(from: warcURLs, filenamePrefix: "archive/")
+        let cdxj = try indexer.generateCDXJ(from: warcURLs)
         let regeneratedCDX = Data(cdxj.utf8)
         let regeneratedHash = hashData(regeneratedCDX, using: hashType)
 

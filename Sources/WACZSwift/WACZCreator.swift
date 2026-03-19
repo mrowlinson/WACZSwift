@@ -68,9 +68,10 @@ public struct WACZCreator: Sendable {
         let archive = try Archive(url: options.output, accessMode: .create)
 
         // 1. Index all WARCs → CDX entries + detect pages
-        // CDX filename must include "archive/" prefix to match the ZIP entry path
+        // CDX filename is the bare WARC filename (no "archive/" prefix).
+        // wabac.js prepends "archive/" itself when loading records from WACZ.
         let indexer = CDXIndexer()
-        let cdxj = try indexer.generateCDXJ(from: options.inputs, filenamePrefix: "archive/")
+        let cdxj = try indexer.generateCDXJ(from: options.inputs)
         let cdxData = Data(cdxj.utf8)
 
         let detector = PageDetector(extractText: options.extractText)
