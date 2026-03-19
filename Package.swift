@@ -15,14 +15,14 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "CZlib",
+            name: "CZlibWACZ",
             dependencies: [],
             linkerSettings: [.linkedLibrary("z")]
         ),
         .target(
             name: "WACZSwift",
             dependencies: [
-                "CZlib",
+                "CZlibWACZ",
                 "ZIPFoundation",
                 "SwiftSoup",
             ]

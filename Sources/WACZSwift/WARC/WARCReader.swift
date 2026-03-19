@@ -1,4 +1,4 @@
-import CZlib
+import CZlibWACZ
 import Foundation
 
 /// Result of reading a single WARC record from a .warc.gz file.

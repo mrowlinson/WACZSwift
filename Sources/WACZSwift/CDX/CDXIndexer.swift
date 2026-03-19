@@ -1,4 +1,4 @@
-import CZlib
+import CZlibWACZ
 import Foundation
 
 public struct CDXIndexer: Sendable {
