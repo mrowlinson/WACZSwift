@@ -70,7 +70,6 @@ public enum WACZError: Error, CustomStringConvertible {
     case invalidDatapackage(String)
     case validationFailed(String)
     case signingFailed(String)
-    case zlibError(String)
 
     public var description: String {
         switch self {
@@ -81,7 +80,6 @@ public enum WACZError: Error, CustomStringConvertible {
         case .invalidDatapackage(let msg): return "Invalid datapackage: \(msg)"
         case .validationFailed(let msg): return "Validation failed: \(msg)"
         case .signingFailed(let msg): return "Signing failed: \(msg)"
-        case .zlibError(let msg): return "zlib error: \(msg)"
         }
     }
 }

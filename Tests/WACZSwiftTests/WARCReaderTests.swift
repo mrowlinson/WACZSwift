@@ -65,7 +65,7 @@ struct WARCReaderTests {
         let results = try reader.readRecords()
 
         #expect(results[0].record.date != nil)
-        let dateStr = formatWARCDate(results[0].record.date!)
+        let dateStr = WARCDate.string(from: results[0].record.date!)
         #expect(dateStr == "2024-01-15T10:30:00Z")
     }
 }

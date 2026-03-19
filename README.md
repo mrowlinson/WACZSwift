@@ -8,6 +8,8 @@ WACZ is a standardized ZIP-based format for packaging WARC web archives with CDX
 
 - **Create** WACZ files from `.warc.gz` archives with full spec compliance (WACZ 1.1.1)
 - **Validate** WACZ files — structure, hashes, indexes, and optional signature verification
+- **Read** WARC records with per-member offset tracking for CDX indexing
+- **Write** WARC records to `.warc` or `.warc.gz` files with per-record gzip compression
 - **CDX indexing** — generates sorted CDXJ indexes with gzip compression
 - **Page detection** — automatic HTML page identification with text extraction via SwiftSoup
 - **Cryptographic hashing** — SHA-256 (default) and MD5 via CryptoKit
@@ -101,6 +103,21 @@ let entries = try indexer.indexWARC(at: URL(fileURLWithPath: "recording.warc.gz"
 for entry in entries {
     print(entry.toCDXJLine())
 }
+
+// Write WARC records
+let writer = try WARCWriter(path: URL(fileURLWithPath: "output.warc.gz"), compress: true)
+let record = WARCRecord(
+    headers: [
+        "WARC-Type": "resource",
+        "WARC-Record-ID": WARCRecord.generateRecordID(),
+        "WARC-Date": WARCDate.string(from: Date()),
+        "WARC-Target-URI": "http://example.com/data.txt",
+        "Content-Type": "text/plain",
+    ],
+    contentBlock: Data("Hello, world!".utf8)
+)
+try writer.write(record)
+try writer.close()
 ```
 
 ## Architecture
@@ -109,12 +126,16 @@ for entry in entries {
 Sources/WACZSwift/
   Constants.swift               WACZ version, hash types, buffer sizes
   Hashing.swift                 CryptoKit-based SHA-256/MD5 hashing
-  Timestamps.swift              WARC/CDXJ/ISO 8601 date handling
+  Timestamps.swift              CDXJ/ISO 8601 date handling
   SURT.swift                    URL to SURT conversion for CDX keys
   WARC/
-    WARCRecordType.swift        Record type enum
-    WARCRecord.swift            Record struct with HTTP content parsing
-    WARCReader.swift            Gzip member decompression via C zlib
+    Gzip.swift                  Gzip compression/decompression via C zlib
+    WARCDate.swift              WARC-Date parsing/formatting (ISO 8601 with fractional seconds)
+    WARCRecordType.swift        Record type enum (CaseIterable)
+    WARCTruncatedReason.swift   WARC-Truncated reason tokens
+    WARCRecord.swift            Record struct with typed accessors and HTTP content parsing
+    WARCReader.swift            Per-member gzip decompression with offset tracking
+    WARCWriter.swift            Write WARC records to .warc/.warc.gz files
   CDX/
     CDXEntry.swift              CDXJ line struct
     CDXIndexer.swift            WARC to sorted, gzip-compressed CDX

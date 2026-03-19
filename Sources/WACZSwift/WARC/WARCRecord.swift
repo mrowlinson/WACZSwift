@@ -4,9 +4,15 @@ public struct WARCRecord: Sendable {
     public let headers: [String: String]
     public let contentBlock: Data
 
+    // MARK: - Core properties
+
     public var recordType: WARCRecordType? {
         guard let typeStr = headers["WARC-Type"] else { return nil }
         return WARCRecordType(rawValue: typeStr)
+    }
+
+    public var recordID: String? {
+        headers["WARC-Record-ID"]
     }
 
     public var targetURI: String? {
@@ -15,7 +21,7 @@ public struct WARCRecord: Sendable {
 
     public var date: Date? {
         guard let dateStr = headers["WARC-Date"] else { return nil }
-        return parseWARCDate(dateStr)
+        return WARCDate.date(from: dateStr)
     }
 
     public var contentType: String? {
@@ -27,16 +33,79 @@ public struct WARCRecord: Sendable {
         return Int(lenStr)
     }
 
-    public var warcPayloadDigest: String? {
+    // MARK: - Digest properties
+
+    public var payloadDigest: String? {
         headers["WARC-Payload-Digest"]
     }
 
-    public var warcBlockDigest: String? {
+    public var blockDigest: String? {
         headers["WARC-Block-Digest"]
     }
 
-    public var warcRefersTo: String? {
+    // MARK: - Optional WARC header accessors
+
+    public var profile: String? {
+        headers["WARC-Profile"]
+    }
+
+    public var ipAddress: String? {
+        headers["WARC-IP-Address"]
+    }
+
+    public var truncated: WARCTruncatedReason? {
+        guard let val = headers["WARC-Truncated"] else { return nil }
+        return WARCTruncatedReason(rawValue: val)
+    }
+
+    public var concurrentTo: String? {
+        headers["WARC-Concurrent-To"]
+    }
+
+    public var refersTo: String? {
+        headers["WARC-Refers-To"]
+    }
+
+    public var refersToTargetURI: String? {
         headers["WARC-Refers-To-Target-URI"]
+    }
+
+    public var refersToDate: Date? {
+        guard let dateStr = headers["WARC-Refers-To-Date"] else { return nil }
+        return WARCDate.date(from: dateStr)
+    }
+
+    public var warcinfoID: String? {
+        headers["WARC-Warcinfo-ID"]
+    }
+
+    public var warcFilename: String? {
+        headers["WARC-Filename"]
+    }
+
+    public var identifiedPayloadType: String? {
+        headers["WARC-Identified-Payload-Type"]
+    }
+
+    public var segmentNumber: Int? {
+        guard let val = headers["WARC-Segment-Number"] else { return nil }
+        return Int(val)
+    }
+
+    public var segmentOriginID: String? {
+        headers["WARC-Segment-Origin-ID"]
+    }
+
+    public var segmentTotalLength: Int? {
+        guard let val = headers["WARC-Segment-Total-Length"] else { return nil }
+        return Int(val)
+    }
+
+    // MARK: - Helpers
+
+    /// Generate a UUID-based WARC record ID.
+    public static func generateRecordID() -> String {
+        "<urn:uuid:\(UUID().uuidString.lowercased())>"
     }
 
     /// For response records, parse the HTTP status line and headers from the content block.

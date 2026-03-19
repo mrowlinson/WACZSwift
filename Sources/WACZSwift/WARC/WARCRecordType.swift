@@ -1,6 +1,6 @@
 import Foundation
 
-public enum WARCRecordType: String, Sendable {
+public enum WARCRecordType: String, Sendable, CaseIterable {
     case warcinfo
     case response
     case resource

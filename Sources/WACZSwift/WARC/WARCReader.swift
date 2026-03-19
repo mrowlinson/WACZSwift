@@ -1,4 +1,3 @@
-import CZlibWACZ
 import Foundation
 
 /// Result of reading a single WARC record from a .warc.gz file.
@@ -35,7 +34,7 @@ public final class WARCReader: @unchecked Sendable {
 
         while compressedOffset < fileData.count {
             let memberStart = compressedOffset
-            let (decompressed, bytesConsumed) = try decompressGzipMember(
+            let (decompressed, bytesConsumed) = try Gzip.decompressMember(
                 from: fileData, offset: compressedOffset
             )
             let memberLength = bytesConsumed
@@ -55,95 +54,34 @@ public final class WARCReader: @unchecked Sendable {
         return results
     }
 
-    /// Decompress a single gzip member from the data at the given offset.
-    /// Returns (decompressed data, number of compressed bytes consumed).
-    private func decompressGzipMember(from data: Data, offset: Int) throws -> (Data, Int) {
-        var stream = z_stream()
-        stream.zalloc = nil
-        stream.zfree = nil
-        stream.opaque = nil
-
-        // windowBits = 15 + 32 to enable gzip decoding with automatic header detection
-        var ret = inflateInit2_(&stream, 15 + 32, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size))
-        guard ret == Z_OK else {
-            throw WACZError.zlibError("inflateInit2 failed: \(ret)")
-        }
-        defer { inflateEnd(&stream) }
-
-        let chunkSize = 65536
-        var output = Data()
-
-        try data.withUnsafeBytes { rawBuffer in
-            guard let baseAddress = rawBuffer.baseAddress else {
-                throw WACZError.zlibError("Failed to access data buffer")
-            }
-            let inputPtr = baseAddress.advanced(by: offset)
-            let availableInput = data.count - offset
-
-            stream.next_in = UnsafeMutablePointer<UInt8>(
-                mutating: inputPtr.assumingMemoryBound(to: UInt8.self)
-            )
-            stream.avail_in = UInt32(availableInput)
-
-            let outBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: chunkSize)
-            defer { outBuffer.deallocate() }
-
-            repeat {
-                stream.next_out = outBuffer
-                stream.avail_out = UInt32(chunkSize)
-
-                ret = inflate(&stream, Z_NO_FLUSH)
-
-                if ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR {
-                    throw WACZError.zlibError("inflate failed: \(ret)")
-                }
-
-                let produced = chunkSize - Int(stream.avail_out)
-                if produced > 0 {
-                    output.append(outBuffer, count: produced)
-                }
-            } while ret != Z_STREAM_END
-        }
-
-        let consumed = Int(stream.total_in)
-        return (output, consumed)
-    }
-
     /// Parse a single WARC record from decompressed data.
+    /// Works with both text and binary payloads by parsing headers from raw bytes.
     private func parseWARCRecord(from data: Data) throws -> WARCRecord? {
         guard !data.isEmpty else { return nil }
 
-        guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) else {
-            return nil
-        }
+        // Find header/content separator in raw bytes (never decode binary payload as text)
+        let crlfcrlf = Data([0x0D, 0x0A, 0x0D, 0x0A])  // \r\n\r\n
+        let lflf = Data([0x0A, 0x0A])                     // \n\n
 
-        // WARC records have the structure:
-        // WARC/1.0\r\n
-        // Header: Value\r\n
-        // ...\r\n
-        // \r\n
-        // <content block>
-        // \r\n\r\n
+        let separatorEnd: Data.Index
+        let headerEnd: Data.Index
 
-        // Find the blank line separating WARC headers from content
-        let crlfcrlf = "\r\n\r\n"
-        let lflf = "\n\n"
-
-        let separator: String
-        let headerEnd: String.Index
-
-        if let range = text.range(of: crlfcrlf) {
-            separator = crlfcrlf
+        if let range = data.range(of: crlfcrlf) {
             headerEnd = range.lowerBound
-        } else if let range = text.range(of: lflf) {
-            separator = lflf
+            separatorEnd = range.upperBound
+        } else if let range = data.range(of: lflf) {
             headerEnd = range.lowerBound
+            separatorEnd = range.upperBound
         } else {
             return nil
         }
 
-        let headerSection = String(text[text.startIndex..<headerEnd])
-        let contentStart = text.index(headerEnd, offsetBy: separator.count)
+        // Decode only the header section as text
+        let headerData = data[data.startIndex..<headerEnd]
+        guard let headerSection = String(data: headerData, encoding: .utf8)
+                ?? String(data: headerData, encoding: .ascii) else {
+            return nil
+        }
 
         // Parse WARC headers
         let headerLines = headerSection.components(separatedBy: .newlines)
@@ -164,21 +102,15 @@ public final class WARCReader: @unchecked Sendable {
             }
         }
 
-        // Extract content block based on Content-Length
+        // Extract content block as raw Data using Content-Length
         let contentLength = headers["Content-Length"].flatMap(Int.init) ?? 0
         let contentBlock: Data
 
-        if contentLength > 0 {
-            // Get bytes from the content start position
-            let headerBytes = headerSection.utf8.count + separator.utf8.count
-            if headerBytes + contentLength <= data.count {
-                contentBlock = data[data.startIndex.advanced(by: headerBytes)..<data.startIndex.advanced(by: headerBytes + contentLength)]
-            } else {
-                // Fallback: use what we have after headers
-                let remaining = String(text[contentStart...])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                contentBlock = Data(remaining.utf8)
-            }
+        if contentLength > 0 && separatorEnd + contentLength <= data.endIndex {
+            contentBlock = data[separatorEnd..<separatorEnd + contentLength]
+        } else if contentLength > 0 {
+            // Content-Length exceeds available data — take what we have
+            contentBlock = data[separatorEnd..<data.endIndex]
         } else {
             contentBlock = Data()
         }

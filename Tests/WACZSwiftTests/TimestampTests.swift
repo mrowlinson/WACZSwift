@@ -7,16 +7,16 @@ import Testing
 struct TimestampTests {
     @Test("Parse WARC date")
     func parseWARC() {
-        let date = parseWARCDate("2024-01-15T10:30:00Z")
+        let date = WARCDate.date(from: "2024-01-15T10:30:00Z")
         #expect(date != nil)
 
-        let formatted = formatWARCDate(date!)
+        let formatted = WARCDate.string(from: date!)
         #expect(formatted == "2024-01-15T10:30:00Z")
     }
 
     @Test("CDXJ timestamp format")
     func cdxjFormat() {
-        let date = parseWARCDate("2024-01-15T10:30:00Z")!
+        let date = WARCDate.date(from: "2024-01-15T10:30:00Z")!
         let ts = cdxjTimestamp(from: date)
         #expect(ts == "20240115103000")
     }
@@ -31,13 +31,13 @@ struct TimestampTests {
     func parseTS() {
         let date = parseTimestamp("20240115103000")
         #expect(date != nil)
-        let formatted = formatWARCDate(date!)
+        let formatted = WARCDate.string(from: date!)
         #expect(formatted == "2024-01-15T10:30:00Z")
     }
 
     @Test("ISO date roundtrip")
     func isoRoundtrip() {
-        let date = parseWARCDate("2024-06-01T00:00:00Z")!
+        let date = WARCDate.date(from: "2024-06-01T00:00:00Z")!
         let iso = isoDate(from: date)
         #expect(iso == "2024-06-01T00:00:00Z")
     }

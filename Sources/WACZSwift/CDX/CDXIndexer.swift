@@ -1,4 +1,3 @@
-import CZlibWACZ
 import Foundation
 
 public struct CDXIndexer: Sendable {
@@ -28,7 +27,7 @@ public struct CDXIndexer: Sendable {
 
             var mime = ""
             var status = ""
-            var digest = result.record.warcPayloadDigest ?? ""
+            var digest = result.record.payloadDigest ?? ""
 
             if recordType == .response, let http = result.record.parseHTTPContent() {
                 status = String(http.statusCode)
@@ -44,7 +43,7 @@ public struct CDXIndexer: Sendable {
             }
 
             if digest.isEmpty {
-                digest = result.record.warcBlockDigest ?? ""
+                digest = result.record.blockDigest ?? ""
             }
 
             entries.append(CDXEntry(
@@ -104,58 +103,6 @@ public struct CDXIndexer: Sendable {
     public func generateCompressedCDX(from urls: [URL], filenamePrefix: String = "") throws -> Data {
         let cdxj = try generateCDXJ(from: urls, filenamePrefix: filenamePrefix)
         let cdxjData = Data(cdxj.utf8)
-        return try gzipCompress(cdxjData)
+        return try Gzip.compress(cdxjData)
     }
-}
-
-/// Gzip compress data using zlib.
-public func gzipCompress(_ data: Data) throws -> Data {
-    var stream = z_stream()
-    stream.zalloc = nil
-    stream.zfree = nil
-    stream.opaque = nil
-
-    // windowBits = 15 + 16 for gzip encoding
-    var ret = deflateInit2_(
-        &stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
-        15 + 16, 8, Z_DEFAULT_STRATEGY,
-        ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size)
-    )
-    guard ret == Z_OK else {
-        throw WACZError.zlibError("deflateInit2 failed: \(ret)")
-    }
-    defer { deflateEnd(&stream) }
-
-    var output = Data()
-    let chunkSize = 65536
-    let outBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: chunkSize)
-    defer { outBuffer.deallocate() }
-
-    try data.withUnsafeBytes { rawBuffer in
-        guard let baseAddress = rawBuffer.baseAddress else {
-            throw WACZError.zlibError("Failed to access data buffer")
-        }
-
-        stream.next_in = UnsafeMutablePointer<UInt8>(
-            mutating: baseAddress.assumingMemoryBound(to: UInt8.self)
-        )
-        stream.avail_in = UInt32(data.count)
-
-        repeat {
-            stream.next_out = outBuffer
-            stream.avail_out = UInt32(chunkSize)
-
-            ret = deflate(&stream, Z_FINISH)
-            if ret == Z_STREAM_ERROR {
-                throw WACZError.zlibError("deflate failed: \(ret)")
-            }
-
-            let produced = chunkSize - Int(stream.avail_out)
-            if produced > 0 {
-                output.append(outBuffer, count: produced)
-            }
-        } while ret != Z_STREAM_END
-    }
-
-    return output
 }
