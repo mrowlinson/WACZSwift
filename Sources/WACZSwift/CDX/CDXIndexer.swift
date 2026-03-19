@@ -76,14 +76,33 @@ public struct CDXIndexer: Sendable {
     }
 
     /// Generate sorted CDXJ lines from WARC files.
-    public func generateCDXJ(from urls: [URL]) throws -> String {
-        let entries = try indexWARCs(at: urls)
+    /// - Parameter filenamePrefix: Optional prefix to prepend to CDX filename fields
+    ///   (e.g. "archive/" so the filename matches the ZIP entry path in a WACZ).
+    public func generateCDXJ(from urls: [URL], filenamePrefix: String = "") throws -> String {
+        var entries = try indexWARCs(at: urls)
+        if !filenamePrefix.isEmpty {
+            entries = entries.map { entry in
+                CDXEntry(
+                    surt: entry.surt,
+                    timestamp: entry.timestamp,
+                    url: entry.url,
+                    mime: entry.mime,
+                    status: entry.status,
+                    digest: entry.digest,
+                    length: entry.length,
+                    offset: entry.offset,
+                    filename: filenamePrefix + entry.filename
+                )
+            }
+        }
         return entries.map { $0.toCDXJLine() }.joined()
     }
 
     /// Generate gzip-compressed CDX index data from WARC files.
-    public func generateCompressedCDX(from urls: [URL]) throws -> Data {
-        let cdxj = try generateCDXJ(from: urls)
+    /// - Parameter filenamePrefix: Optional prefix to prepend to CDX filename fields
+    ///   (e.g. "archive/" so the filename matches the ZIP entry path in a WACZ).
+    public func generateCompressedCDX(from urls: [URL], filenamePrefix: String = "") throws -> Data {
+        let cdxj = try generateCDXJ(from: urls, filenamePrefix: filenamePrefix)
         let cdxjData = Data(cdxj.utf8)
         return try gzipCompress(cdxjData)
     }

@@ -201,7 +201,7 @@ public struct WACZValidator: Sendable {
         warcURLs.sort { $0.lastPathComponent < $1.lastPathComponent }
 
         let indexer = CDXIndexer()
-        let regeneratedCDX = try indexer.generateCompressedCDX(from: warcURLs)
+        let regeneratedCDX = try indexer.generateCompressedCDX(from: warcURLs, filenamePrefix: "archive/")
         let regeneratedHash = hashData(regeneratedCDX, using: hashType)
 
         // Find the CDX resource in datapackage
