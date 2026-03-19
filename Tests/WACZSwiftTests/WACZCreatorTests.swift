@@ -49,7 +49,7 @@ struct WACZCreatorTests {
 
         #expect(paths.contains("datapackage.json"))
         #expect(paths.contains("datapackage-digest.json"))
-        #expect(paths.contains("indexes/index.cdx.gz"))
+        #expect(paths.contains("indexes/index.cdx"))
         #expect(paths.contains("pages/pages.jsonl"))
         #expect(paths.contains("archive/sample.warc.gz"))
     }

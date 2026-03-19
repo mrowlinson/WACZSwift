@@ -70,7 +70,8 @@ public struct WACZCreator: Sendable {
         // 1. Index all WARCs → CDX entries + detect pages
         // CDX filename must include "archive/" prefix to match the ZIP entry path
         let indexer = CDXIndexer()
-        let cdxData = try indexer.generateCompressedCDX(from: options.inputs, filenamePrefix: "archive/")
+        let cdxj = try indexer.generateCDXJ(from: options.inputs, filenamePrefix: "archive/")
+        let cdxData = Data(cdxj.utf8)
 
         let detector = PageDetector(extractText: options.extractText)
         var pages: [Page]
@@ -85,16 +86,8 @@ public struct WACZCreator: Sendable {
             pages = try detector.detectPages(from: options.inputs)
         }
 
-        // 2. Write CDX index (STORE — already gzipped)
-        try archive.addEntry(
-            with: "indexes/index.cdx.gz",
-            type: .file,
-            uncompressedSize: Int64(cdxData.count),
-            compressionMethod: .none,
-            provider: { position, size in
-                cdxData[Int(position)..<Int(position) + size]
-            }
-        )
+        // 2. Write CDX index (DEFLATE — plain text, discoverable by wabac.js)
+        try addDeflateEntry(to: archive, path: "indexes/index.cdx", data: cdxData)
 
         // 3. Copy WARC files to archive/ (STORE)
         for input in options.inputs {

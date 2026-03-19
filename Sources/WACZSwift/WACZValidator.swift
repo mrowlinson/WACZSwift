@@ -141,9 +141,7 @@ public struct WACZValidator: Sendable {
         for entry in archive {
             let path = entry.path
             let isWARC = path.hasPrefix("archive/") && (path.hasSuffix(".warc") || path.hasSuffix(".warc.gz"))
-            let isCDXGZ = path == "indexes/index.cdx.gz"
-
-            if (isWARC || isCDXGZ) && entry.isCompressed {
+            if isWARC && entry.isCompressed {
                 errors.append("File should use STORE compression: \(path)")
             }
         }
@@ -201,11 +199,12 @@ public struct WACZValidator: Sendable {
         warcURLs.sort { $0.lastPathComponent < $1.lastPathComponent }
 
         let indexer = CDXIndexer()
-        let regeneratedCDX = try indexer.generateCompressedCDX(from: warcURLs, filenamePrefix: "archive/")
+        let cdxj = try indexer.generateCDXJ(from: warcURLs, filenamePrefix: "archive/")
+        let regeneratedCDX = Data(cdxj.utf8)
         let regeneratedHash = hashData(regeneratedCDX, using: hashType)
 
         // Find the CDX resource in datapackage
-        if let cdxResource = datapackage.resources.first(where: { $0.path == "indexes/index.cdx.gz" }) {
+        if let cdxResource = datapackage.resources.first(where: { $0.path == "indexes/index.cdx" }) {
             if regeneratedHash != cdxResource.hash {
                 errors.append("CDX index hash mismatch: indexes may be outdated or corrupted")
             }
